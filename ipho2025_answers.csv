@@ -1,0 +1,82 @@
+id,answer
+Q1_A-1,$v=\sqrt{\frac{e^{2}}{4 \pi \varepsilon_{0} m_{e} r}}$
+Q1_A-2.1,$\begin{array}{l}r_{n}=\frac{\hbar n^{2}}{\alpha m_{e} c} \text { and then } r_{1}=\frac{\hbar}{\alpha m_{e} c} \\ r_{1}=5.31 \times 10^{-11} \mathrm{~m}\end{array}$
+Q1_A-2.2,$v_{1}=\frac{e^{2}}{4 \pi \varepsilon_{0} \hbar}=\alpha c$
+Q1_A-3.1,$E_{n}=-\frac{e^{2}}{8 \pi \varepsilon_{0} n^{2} r_{1}}$
+Q1_A-3.2,$E_{1}=-\frac{1}{2} \alpha^{2} m_{e} c^{2}$
+Q1_A-3.3,$E_{1}=-13.6 \mathrm{eV}$
+Q1_A-4,$B_{1}=\frac{\mu_{0} e \alpha c}{4 \pi r_{1}^{2}}$
+Q1_A-5.1,$\Delta E_{\mathrm{F}}=-4 \alpha^{2} E_{1}$
+Q1_A-5.2,$\lambda_{\mathrm{HF}}=-\frac{h c}{3.72 \cdot \frac{m_{e}}{m_{p}} 4 \alpha^{2} E_{1}} \quad \lambda_{\mathrm{HF}}=21 \mathrm{~cm}$
+Q1_B-1,$v_{c}=\sqrt{r \frac{d \varphi}{d r}}$
+Q1_B-2,$M_{b} \simeq 9.10^{8} M_{\odot}$
+Q1_B-3.1,$k_{1}=4 \pi C_{m} G \quad k_{2}=4 \pi C_{m} G r_{m}$
+Q1_B-3.2,"$\begin{aligned} & v_{c, m} \simeq \sqrt{\frac{4 \pi C_{m} G r^{2}}{3 r_{m}^{2}}} \\ v_{c, m} \simeq \sqrt{4 \pi C_{m} G} & \end{aligned}$"
+Q1_B-3.3,$M_{\mathrm{int}} \simeq 4 \pi C_{m} r$ if $r \gg r_{m}$
+Q1_B-3.4,$M_{\text {in the figure }} \simeq 4 \pi C_{m} R \simeq 10^{41} \mathrm{~kg} \simeq 10^{11} \mathrm{M}_{\odot}$
+Q1_C-1.1,$\ddot{z}=\frac{2 z}{z_{0}^{2}} \varphi_{0} \ln \left(\frac{r}{r_{0}}\right) \exp \left[-\left(\frac{z}{z_{0}}\right)^{2}\right]$
+Q1_C-1.2,$\omega_{0}=\sqrt{\frac{2 \varphi_{0}}{z_{0}^{2}}\left|\ln \left(\frac{r}{r_{0}}\right)\right|}$
+Q1_C-2,$v_{c}=\sqrt{\varphi_{0}}$
+Q1_C-3.1,$v_{r E / S}=v_{\odot}\left(\frac{R_{\odot}}{R}-1\right) \sin (\ell)$
+Q1_C-3.2,$R=\frac{R_{\odot}}{1+\frac{v_{r E / S}}{v_{\odot} \sin (\ell)}}$
+Q1_C-4,"\begin{tabular}{|c|}
+\hline$v_{r, 1}=6.33 \mathrm{~km} \cdot \mathrm{~s}^{-1}$ \\
+\hline$v_{r, 2}=31.7 \mathrm{~km} \cdot \mathrm{~s}^{-1}$ \\
+\hline$v_{r, 3}=54.9 \mathrm{~km} \cdot \mathrm{~s}^{-1}$ \\
+\hline$R_{1}=0.95 R_{\odot}$ \\
+\hline$R_{2}=0.78 R_{\odot}$ \\
+\hline$R_{3}=0.67 R_{\odot}$ \\
+\hline
+\end{tabular}"
+Q1_D-1.1,"$M_{\mathrm{tot}}=\eta v_{c, \infty}^{\gamma}$ with $\gamma=2$ and $\eta=R / G$"
+Q1_D-1.2,$\gamma_{T F} \simeq \frac{12-9}{2.6-1.8}=3.75$
+Q1_D-2,$a_{m}=\frac{\left(1.6 .10^{5}\right)^{2}}{5.3 .10^{19}} \simeq 1.5 \times 10^{-10} \mathrm{~m} \cdot \mathrm{~s}^{-2}$
+Q1_D-3,$a_{0}=1.5 \times 10^{-10} \mathrm{~m} \cdot \mathrm{~s}^{-2}$
+Q1_D-4,"$\nu_{c}(r)=\sqrt{\frac{G M}{2 r}\left(1+\sqrt{1+\frac{4 a_{0} r^{2}}{G M}}\right)} \quad$ which is valid only if $r>R_{b}$ $\nu_{c}(r)=\sqrt{\frac{G M}{2 r}\left(\frac{r}{R_{b}}\right)^{3}\left[1+\sqrt{1+\frac{4 a_{0} r^{2}}{G M}\left(\frac{R_{b}}{r}\right)^{3}}\right]} \quad$ which is valid only if $r \leq R_{b}$ When $r \rightarrow 0, \quad v_{c} \rightarrow 0$"
+Q2_A-1.1,$P_{\mathrm{w}}=P_{\mathrm{a}}-\rho g h=P_{0}-\rho g h$
+Q2_A-1.2,$\vec{F}=-[m+\rho S h] \vec{g}=[m+\rho S h] g \overrightarrow{u_{z}}$
+Q2_A-2,"\begin{tabular}{|c|c|c|c|}
+\hline Experiment & Behaviour (A or B ?) & $h^{\star}(\mathrm{cm})$ & $F_{\max }(\mathrm{N})$ \\
+\hline 1 & A & & 14.7 \\
+\hline 2 & A & & 14.4 \\
+\hline 3 & B & 2.1 & 5.1 \\
+\hline
+\end{tabular}"
+Q2_A-3,$\varepsilon=\frac{P_{\text {sat }}}{P_{0}+m g / S} \simeq 1.6 \times 10^{-6}$
+Q2_B-3,$\Delta m_{\mathrm{add}}=\frac{S_{\mathrm{b}} A}{g} \simeq 1 \mathrm{~kg}$
+Q2_C-1,$\xi^{\star}=2$
+Q2_C-2,$\vec{T}=\frac{4 S_{\mathrm{c}}\left(S_{\mathrm{b}}-S_{\mathrm{t}}\right)}{S_{\mathrm{b}}+S_{\mathrm{c}}-S_{\mathrm{t}}} \rho g X \overrightarrow{u_{x}} \simeq \frac{4 S_{\mathrm{b}} S_{\mathrm{c}}}{S_{\mathrm{b}}+S_{\mathrm{c}}} \rho g X \overrightarrow{u_{x}}$
+Q2_C-3,"Regime 1 : $\quad \xi+2 \lambda>2 \quad$ (once at $x=X$, the mass $M$ stays indefinitely at rest)
+
+Regime 2: $\quad \xi+2 \lambda<2 \quad$ (once at $x=X$, the mass $M$ will periodically sweep between the two stops)"
+Q2_C-4,$\begin{array}{c}X^{\star}=\frac{A}{4 \rho g} \\ F_{\mathrm{s}}^{\star}=\frac{A S_{\mathrm{c}}}{2} \\ W^{\star}=\frac{A^{2} S_{\mathrm{c}}}{2 \rho g} \simeq 20 \mathrm{~mJ}\end{array}$
+Q2_C-5.1,$W_{\mathrm{pr}}^{\star}=4 S_{\mathrm{c}} X^{\star} A=\frac{S_{\mathrm{c}} A^{2}}{\rho g}$
+Q2_C-5.2,$\frac{W^{\star}}{W_{\mathrm{pr}}^{\star}}=\frac{1}{2}$
+Q3_A-1,$P_{\mathrm{b}}=P_{0}+\frac{2 \sigma}{a}$
+Q3_A-2.1,$a_{\mathrm{c}}=\frac{2 \sigma}{P_{0}\left(c_{\ell} / c_{0}-1\right)}$
+Q3_A-2.2,$a_{\mathrm{c}}=0.3 \mu \mathrm{~m}$
+Q3_A-3.1,$n_{\mathrm{c}}=\frac{4}{3} \pi a^{3} \frac{P_{0}}{R T_{0}}$
+Q3_A-3.2,"\[
+\begin{array}{l}
+a^{2}=a_{0}^{2}+\frac{2 D R T_{0}}{P_{0}}\left(c_{\ell}-c_{0}\right) t \\
+a=a_{0}+\frac{K R T_{0}}{P_{0}}\left(c_{\ell}-c_{0}\right) t
+\end{array}
+\]
+model 2
+\[
+K=1.0 \times 10^{-4} \mathrm{~m} \cdot \mathrm{~s}^{-1}
+\]"
+Q3_A-4.1,"buoyancy $\frac{4}{3} \pi a^{3} \rho_{k} g_{0}$, drag force $6 \pi \eta a v$"
+Q3_A-4.2,$v=\frac{2}{9 \eta} a^{2} \rho_{l} g_{0}$.
+Q3_A-4.3,$\eta \approx 2 \times 10^{-3} \mathrm{~Pa} \cdot \mathrm{~s}$
+Q3_A-5.1,$a_{H_{k}}=\left(\frac{27 q_{a} \eta H_{\ell}}{2 \gamma_{\ell} g_{0}}\right)^{1 / 3}$
+Q3_A-5.2,$a_{H_{\ell}}=3.9 \times 10^{-4} \mathrm{~m}$
+Q3_A-6,$\begin{array}{c}\frac{\mathrm{d} c_{\ell}}{\mathrm{d} t}=\frac{1}{V_{\ell}} \frac{\mathrm{d} n}{\mathrm{~d} t}=-\frac{18 \pi N_{\mathrm{b}} f_{\mathrm{b}} \eta K H_{\ell}}{\rho_{\ell} g V_{\ell}}\left(c_{\ell}-c_{0}\right) \\ \tau=\frac{\rho_{\ell} g V_{\ell}}{18 \pi N_{\mathrm{b}} f_{\mathrm{b}} \eta K H_{\ell}}\end{array}$
+Q3_B-1,$v_{f}=\sqrt{2 \sigma / \rho_{\ell} h}$
+Q3_B-2,$f_{0}=\frac{1}{2 \pi} \sqrt{\frac{S^{2} P_{0} \gamma}{m_{p} V_{0}}}$
+Q3_B-3.1,$a=0.53 \mathrm{~mm}$
+Q3_B-3.2,$h=3.7 \mu \mathrm{~m}$
+Q3_C-1.1,$P_{i}=4.81 \mathrm{bar}$
+Q3_C-1.2,$P_{i}=7.76 \mathrm{bar}$
+Q3_C-2,1 and 4.
+Q3_C-3,$H_{c}=7.7 \mathrm{~m}$
