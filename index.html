@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <!-- Meta tags for social media banners, these should be filled in appropriatly as they are your "business card" -->
+  <!-- Replace the content tag with appropriate information -->
+    <meta property="og:title" content="PhysArena.ai"/>
+  <meta property="og:description" content="PhysArena: Evaluating LLMs on Uncontaminated Physics Competitions"/>
+  <meta property="description" content="PhysArena: Evaluating LLMs on Uncontaminated Physics Competitions"/>
+
+  <meta property="og:url" content="https://physarena.ai/"/>
+    <meta property="og:image:width" content="1200"/>
+  <meta property="og:image:height" content="630"/>
+  <meta name="keywords" content="Physics, LLM, Olympiads, Competitions, Leaderboards, AI, Machine Learning, PhysArena, PhysArena.ai"/>
+  <link rel="icon" type="image/x-icon" href="static/images/physarena.svg">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+
+
+  <title>PhysArena</title>
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+  rel="stylesheet">
+
+  <link rel="stylesheet" href="static/css/bulma.min.css">
+  <link rel="stylesheet" href="static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="static/css/fontawesome.all.min.css">
+  <link rel="stylesheet"
+  href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/2.0.7/css/dataTables.dataTables.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/material-components-web/14.0.0/material-components-web.min.js">
+  <link rel="stylesheet" href="static/css/index.css">
+  
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV" crossorigin="anonymous">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js" integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05" crossorigin="anonymous"
+      onload="renderMathInElement(document.body);"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://documentcloud.adobe.com/view-sdk/main.js"></script>
+  <script defer src="static/js/fontawesome.all.min.js"></script>
+  <script src="static/js/bulma-carousel.min.js"></script>
+  <script src="static/js/bulma-slider.min.js"></script>
+  <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/2.0.7/js/dataTables.min.js"></script>
+  <script src="static/js/model_answer.js"></script>
+  <script src="static/js/primary_table.js"></script>
+  <script src="static/js/secondary_table.js"></script>
+  <script src="static/js/index.js"></script>
+  
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      renderMathInElement(document.body, {
+        delimiters: [
+          {left: '$$', right: '$$', display: true},
+					{left: '$', right: '$', display: false},
+					{left: '\\(', right: '\\)', display: false},
+					{left: '\\[', right: '\\]', display: true}
+        ]
+      });
+    });
+  </script>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+
+
+  <section class="hero">
+    <div class="hero-body">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered">
+          <div class="column has-text-centered">
+            <h1 class="title is-1 publication-title">PhysArena:<br>Evaluating LLMs on Uncontaminated Physics Competitions</h1>
+            <br>
+            <div class="is-size-5 publication-authors">
+              <a href="https://www.sysu.edu.cn/" class="header-link" target="_blank">
+                <img src="static/images/SYSU.svg" alt="SYSU Logo" class="header-image">
+              </a>
+              <a href="https://ethz.ch/en.html" class="header-link" target="_blank">
+                <img src="static/images/ETH.svg" alt="ETH Logo" class="header-image">
+              </a>
+              <a href="https://hku.hk/c_index.html" class="header-link" target="_blank">
+                <img src="static/images/HKU.svg" alt="HKU Logo" class="header-image">
+              </a>
+            </div>
+            <br>
+          </div>
+        </div>
+      </div>
+    </div>
+</section>
+
+
+
+<section class="hero is-light">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div>
+        <h3 class="tableHeading">
+         
+          <b>Click on a colored cell in the table below to see detailed model outputs.</b>
+        </h3>
+      </div>
+      <div class="columns is-centered">
+        
+        
+        <div class="column has-text-justified" style="min-height: 400px; width: 100%"> 
+          <!-- <div class="table-info-box">
+            <b>Model scores on AIME I 2025</b>
+          </div> -->
+          <p id="warning-contamination-table"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+
+        <div id="traces">
+          
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="hero is-light">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered has-text-centered center-content">
+        <div class="column is-ninety">
+          <h2 class="title is-2">What is PhysArena?</h2>
+          <div class="content has-text-justified">
+            <!-- <div class="caption">
+              We pit LLMs against each other and humans on recent physics competitions and olympiads, providing the possibility for uncontaminated model evaluation. 
+              We hope that this will lead to better understanding of the capabilities and limitations of LLMs on physics tasks.
+            </div> -->
+            <p>
+              PhysArena is a platform for evaluation of LLMs on the latest physics competitions and olympiads.
+              Our mission is rigorous assessment of the reasoning and generalization capabilities of LLMs on new physics problems which the models have not seen during training.
+              To ensure a fair and uncontaminated evaluation, we exclusively test models on competitions that took place after their release, avoiding retroactive assessments on potentially leaked or pre-trained material.
+              By performing standardized evaluation we ensure model scores are actually comparable and are not dependent on the specific evaluation setup of the model provider.
+              <br><br>
+              To show the model performance, we publish a leaderboard for each competition showing the scores of different models individual problems.
+              Additionally, we will include a main table that includes model performance on all competitions.
+              To evaluate performance, we run each model 4 times on each problem, computing the average score and the cost of the model (in USD) across all runs.
+              <!-- To make the results easier to interpret, we use a color-coded system in the table: green problems are solved more than 75% of the time, yellow problems are solved 25-75% of the time, and red problems are solved less than 25% of the time. -->
+              <br><br>
+              We open sourced our evaluation code at: <a href="https://github.com/AI4Phys/PhysArena">https://github.com/AI4Phys/PhysArena</a>. 
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container is-max-desktop">
+    <div class="columns is-centered">
+      <div class="column is-ninety section-code-pdf">
+        
+        <div style="text-align: center;">
+          <a href="https://github.com/AI4Phys/PhysArena">
+            <img src="static/images/github-mark.svg" alt="GitHub" class="icon-code-pdf">
+          </a>
+          <div>Code</div>
+        </div>
+
+        
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered has-text-centered center-content">
+        <div class="column is-ninety">
+        <!-- Add FAQ section -->
+          <h2 class="title is-2">Frequently Asked Questions</h2>
+          <div class="content has-text-justified">
+            <div class="faq-container">
+              <div class="faq-item">
+                <div class="faq-question">
+                  How exactly do you compute accuracy?
+                </div>
+                <div class="faq-answer" style="display: none;">
+                  We compute the accuracy of a model by prompting it to solve each problem 4 times and computing the success rate for this problem by dividing the number of correct solutions by 4.
+                  This corresponds to the pass@1 metric estimated using 4 samples. The final accuracy is the average pass@1 over all problems. We do not perform majority voting or other criteria like pass@K.
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-question">
+                  What do the colors in the table mean?
+                </div>
+                <div class="faq-answer" style="display: none;">
+                  The colors indicate success rates of the problems:
+                  <ul>
+                    <li>Green: Problem solved >75% of the time</li>
+                    <li>Yellow: Problem solved 25-75% of the time</li>
+                    <li>Orange: Problem solved 1-24% of the time</li>
+                    <li>Red: Problem never solved.</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-question">
+                  Can you show the average number of input and output tokens for each model?
+                </div>
+                <div class="faq-answer" style="display: none;">
+                  Yes, below you can find the average number of input and output tokens for each model along with the price per million tokens for the API we used. 
+                  The data is shown for the competition that is visible on the page.
+                  <table id="secondaryTable" class="display" style="width:100%">
+                  </table>
+                </div>
+                  
+              </div>
+
+             
+              <div class="faq-item">
+                <div class="faq-question">
+                  How is the cost calculated?
+                </div>
+                <div class="faq-answer" style="display: none;">
+                  The cost shows the total cost of evaluating the model on the entire benchmark (all problems and all repetitions). It is calculated based on the API pricing for each model.
+                  For open-source models, costs can vary significantly depending on the chosen API provider and our results may not always be achieved using the most cost-effective option.
+                  
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-question">
+                  How do you know that your problems are not in the training data?
+                </div>
+                <div class="faq-answer" style="display: none;">
+                  We always evaluate models on new competitions immediately as the problems are released, guaranteeing that the knowledge cutoff of the model is before the date of the competition. 
+                   So we believe that the problems are sufficiently novel that it is possible to evaluate generalization capabilities of the models.
+                  Nevertheless, for every competition, we check for similar existing problems using Deep Research, and if any similar problem has been found we include this information next to the corresponding problem from the competition (can be found by clicking in the table).
+                  If you find any contamination (e.g. problems that have appeared before), feel free to contact us and we will add this information to the table.
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-question">
+                  Can you evaluate more models?
+                </div>
+                <div class="faq-answer" style="display: none;">
+                  Yes, we are planning to add more models while keeping the table concise and informative. Some of the models are difficult to evaluate due to the rate limits in particular APIs, but we will try to add
+                  most well known ones. We also released our evaluation scripts to enable the community to evaluate their models.
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <div class="faq-question">
+                  How can I contact you?
+                </div>
+                <div class="faq-answer" style="display: none;">
+                  You can contact us via email at <a href="mailto:xiangk123@gmail.com">xiangk123@gmail.com</a>.
+                </div>
+              </div>
+
+             
+</section>
+
+<!-- Cloudflare Web Analytics -->
+ <script defer src='https://static.cloudflareinsights.com/beacon.min.js' 
+ data-cf-beacon='{"token": "68baeccd6f3e464aa6ad43275be4f8ca"}'>
+</script><!-- End Cloudflare Web Analytics -->
+  </body>
+  </html>
