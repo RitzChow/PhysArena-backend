@@ -321,7 +321,15 @@ def build_backend_payload() -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, A
 # Flask app
 # -------------------------
 app = Flask(__name__, static_folder=PROJECT_ROOT, static_url_path="")
-CORS(app)
+
+# 配置CORS以允许跨域访问
+CORS(app, resources={
+    r"/api/*": {"origins": ["https://physarena.github.io", "http://localhost:*"]},
+    r"/results": {"origins": ["https://physarena.github.io", "http://localhost:*"]},
+    r"/secondary": {"origins": ["https://physarena.github.io", "http://localhost:*"]},
+    r"/competition_dates": {"origins": ["https://physarena.github.io", "http://localhost:*"]},
+    r"/traces/*": {"origins": ["https://physarena.github.io", "http://localhost:*"]}
+})
 
 # 在应用启动时构建数据
 print("正在构建后端数据...")
@@ -334,18 +342,40 @@ def root():
     return send_from_directory(PROJECT_ROOT, "index.html")
 
 
+@app.get("/health")
+def health_check():
+    return jsonify({
+        "status": "ok",
+        "competitions": len(RESULTS_PAYLOAD.get('competition_info', {})),
+        "available_competitions": list(RESULTS_PAYLOAD.get('competition_info', {}).keys())
+    })
+
+
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({"error": "Not found", "message": str(error)}), 404
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    return jsonify({"error": "Internal server error", "message": str(error)}), 500
+
+
 @app.get("/results")
 def get_results():
+    print(f"GET /results - 返回 {len(RESULTS_PAYLOAD.get('results', {}))} 个竞赛")
     return jsonify(RESULTS_PAYLOAD)
 
 
 @app.get("/secondary")
 def get_secondary():
+    print(f"GET /secondary - 返回数据")
     return jsonify(SECONDARY_PAYLOAD)
 
 
 @app.get("/competition_dates")
 def get_comp_dates():
+    print(f"GET /competition_dates - 返回数据")
     return jsonify(COMP_DATES_PAYLOAD)
 
 
