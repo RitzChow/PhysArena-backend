@@ -302,6 +302,58 @@ def build_backend_payload() -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, A
         
         all_traces_index[competition_key] = traces_index
 
+    
+  # 构建Overall总榜
+    overall_results = {}
+    all_models = set()
+    
+    # 收集所有模型和竞赛
+    competitions = []
+    for competition_data in all_results_payload.values():
+        for row in competition_data:
+            if row["question"] == "Avg":  # 只处理平均行
+                for model in row.keys():
+                    if model != "question":
+                        all_models.add(model)
+    
+    # 收集竞赛名称
+    for competition_key in all_results_payload.keys():
+        if competition_key != "overall":  # 避免循环引用
+            competitions.append(competition_key)
+    
+    # 构建Overall表格格式：每行一个问题，每列一个模型
+    overall_rows = []
+    
+    # 第一行：Acc（平均正确率）
+    acc_row = {"question": "Acc"}
+    for model in sorted(all_models):
+        scores = []
+        for competition_key in competitions:
+            competition_data = all_results_payload[competition_key]
+            for row in competition_data:
+                if row["question"] == "Avg" and model in row:
+                    scores.append(row[model])
+        if scores:
+            acc_row[model] = sum(scores) / len(scores)
+        else:
+            acc_row[model] = 0.0
+    overall_rows.append(acc_row)
+    
+    # 为每个竞赛添加一行
+    for competition_key in competitions:
+        # 从COMPETITION_CONFIGS获取竞赛名称
+        comp_name = COMPETITION_CONFIGS.get(competition_key, {}).get("nice_name", competition_key)
+        comp_row = {"question": comp_name}
+        competition_data = all_results_payload[competition_key]
+        for row in competition_data:
+            if row["question"] == "Avg":  # 只处理平均行
+                for model in sorted(all_models):
+                    comp_row[model] = row.get(model, 0.0)
+                break
+        overall_rows.append(comp_row)
+    
+    overall_results["overall"] = overall_rows
+    
     # 构建顶级结果负载
     competition_info = {}
     for i, (competition_key, config) in enumerate(COMPETITION_CONFIGS.items(), start=1):
