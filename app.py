@@ -324,36 +324,37 @@ def build_backend_payload() -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, A
     # 构建Overall表格格式：每行一个问题，每列一个模型
     overall_rows = []
     
-    # 第一行：Acc（平均正确率）
-    acc_row = {"question": "Acc"}
-    for model in sorted(all_models):
+   for model in sorted(all_models):
+        model_row = {"model_name": model}
+        
+        # 计算该模型在所有竞赛中的平均正确率
         scores = []
         for competition_key in competitions:
             competition_data = all_results_payload[competition_key]
             for row in competition_data:
                 if row["question"] == "Avg" and model in row:
                     scores.append(row[model])
+        
+        # 添加Avg列（平均正确率）
         if scores:
-            acc_row[model] = sum(scores) / len(scores)
+            model_row["Avg"] = sum(scores) / len(scores)
         else:
-            acc_row[model] = 0.0
-    overall_rows.append(acc_row)
-    
-    # 为每个竞赛添加一行
-    for competition_key in competitions:
-        # 从COMPETITION_CONFIGS获取竞赛名称
-        comp_name = COMPETITION_CONFIGS.get(competition_key, {}).get("nice_name", competition_key)
-        comp_row = {"question": comp_name}
-        competition_data = all_results_payload[competition_key]
-        for row in competition_data:
-            if row["question"] == "Avg":  # 只处理平均行
-                for model in sorted(all_models):
-                    comp_row[model] = row.get(model, 0.0)
-                break
-        overall_rows.append(comp_row)
+            model_row["Avg"] = 0.0
+        
+        # 为每个竞赛添加一列
+        for competition_key in competitions:
+            comp_name = COMPETITION_CONFIGS.get(competition_key, {}).get("nice_name", competition_key)
+            competition_data = all_results_payload[competition_key]
+            for row in competition_data:
+                if row["question"] == "Avg" and model in row:
+                    model_row[comp_name] = row[model]
+                    break
+            else:
+                model_row[comp_name] = 0.0
+        
+        overall_rows.append(model_row)
     
     overall_results["overall"] = overall_rows
-    
     # 构建顶级结果负载
     competition_info = {}
     for i, (competition_key, config) in enumerate(COMPETITION_CONFIGS.items(), start=1):
@@ -377,7 +378,7 @@ def build_backend_payload() -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, A
         "medal_thresholds": [75, 50, 25],
         "judge": False,
         "default_open": True,  # 默认打开Overall
-        "problem_names": ["Acc"] + [competition_info.get(comp, {}).get("nice_name", comp) for comp in competitions]
+        "problem_names": ["Avg"] + [competition_info.get(comp, {}).get("nice_name", comp) for comp in competitions]
     }
 
     # 为Overall添加secondary数据
