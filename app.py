@@ -365,10 +365,62 @@ def build_backend_payload() -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, A
                 "num_problems": len(all_results_payload[competition_key]) - 2,  # 减去Avg和Cost行
                 "medal_thresholds": config["medal_thresholds"],
                 "judge": config["judge"],
-                "default_open": config.get("default_open", False),
+                "default_open": False,
                 "problem_names": [f"{i+1}" for i in range(len(all_results_payload[competition_key]) - 2)]
             }
+# 添加Overall竞赛信息
+    competition_info["overall"] = {
+        "index": 0,  # 设为0，让它显示在最前面
+        "nice_name": "Overall",
+        "type": "FinalAnswer",
+        "num_problems": len(competitions) + 1,  # Acc + 竞赛数量
+        "medal_thresholds": [75, 50, 25],
+        "judge": False,
+        "default_open": True,  # 默认打开Overall
+        "problem_names": ["Acc"] + [competition_info.get(comp, {}).get("nice_name", comp) for comp in competitions]
+    }
 
+    # 为Overall添加secondary数据
+    overall_secondary = []
+    
+    # 收集所有模型的secondary数据
+    all_secondary_models = set()
+    for secondary_data in all_secondary_payload.values():
+        for row in secondary_data:
+            for model in row.keys():
+                if model != "question":
+                    all_secondary_models.add(model)
+    
+    # 计算每个模型在所有竞赛中的平均secondary指标
+    for metric in ["Input Tokens", "Input Cost", "Output Tokens", "Output Cost", "Acc"]:
+        metric_row = {"question": metric}
+        for model in sorted(all_secondary_models):
+            values = []
+            for secondary_data in all_secondary_payload.values():
+                for row in secondary_data:
+                    if row["question"] == metric and model in row:
+                        values.append(row[model])
+            if values:
+                if metric == "Acc":
+                    # 准确率取平均
+                    metric_row[model] = sum(values) / len(values)
+                else:
+                    # 其他指标取总和
+                    metric_row[model] = sum(values)
+            else:
+                metric_row[model] = 0.0
+        overall_secondary.append(metric_row)
+    
+    all_secondary_payload["overall"] = overall_secondary
+    
+    # 为Overall添加competition_dates数据
+    all_competition_dates["overall"] = {}
+    for model in all_secondary_models:
+        all_competition_dates["overall"][model] = False
+    
+    # 合并所有结果
+    all_results_payload.update(overall_results)
+    
     results_payload = {
         "competition_info": competition_info,
         "results": all_results_payload
