@@ -1,25 +1,47 @@
 from __future__ import annotations
 
+import json
+import math
 import os
-from pathlib import Path
-from collections import defaultdict
-from dataclasses import dataclass, asdict
-from typing import Dict, List, Any
+import glob
+from collections import defaultdict, OrderedDict
+from dataclasses import dataclass
+from typing import Dict, List, Any, Tuple
 
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 from openpyxl import load_workbook
 
-# -------------------------
-# 配置
-# -------------------------
-DATA_DIR = Path(__file__).with_name("data")
-app = Flask(__name__, static_url_path="", static_folder=str(Path(__file__).parent))
-CORS(app)
 
 # -------------------------
-# 数据类定义
+# Configuration
 # -------------------------
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+
+# 定义支持的竞赛配置
+COMPETITIONS_CONFIG = {
+    "ipho2024": {
+        "file_pattern": "ipho2024_outputs.xlsx",
+        "key": "ipho--ipho_2024",
+        "nice_name": "IPhO 2024",
+        "index": 1
+    },
+    "ipho2025": {
+        "file_pattern": "ipho2025_outputs.xlsx", 
+        "key": "ipho--ipho_2025",
+        "nice_name": "IPhO 2025",
+        "index": 2
+    },
+    # 可以继续添加更多竞赛
+    # "aime2024": {
+    #     "file_pattern": "aime2024_outputs.xlsx",
+    #     "key": "aime--aime_2024", 
+    #     "nice_name": "AIME 2024",
+    #     "index": 3
+    # }
+}
+
+
 @dataclass
 class RunRecord:
     problem_idx: str
@@ -39,204 +61,307 @@ class RunRecord:
     parsed_answer: str | None
     correct: bool | None
 
-# -------------------------
-# 全局变量：用于缓存加载后的数据
-# -------------------------
-# 修改：使用一个统一的 payload 存储所有数据
-ALL_DATA_PAYLOAD: Dict[str, Any] = {}
-ALL_TRACES: Dict[str, Dict[str, Any]] = {}  # Traces 结构保持不变
 
-# -------------------------
-# 数据读取与处理函数
-# -------------------------
-def read_outputs_xlsx(path: Path) -> List[RunRecord]:
-    ws = load_workbook(path, read_only=True, data_only=True).worksheets[0]
+def find_competition_files() -> Dict[str, str]:
+    """查找所有存在的竞赛文件"""
+    found_files = {}
+    for comp_id, config in COMPETITIONS_CONFIG.items():
+        file_path = os.path.join(PROJECT_ROOT, config["file_pattern"])
+        if os.path.exists(file_path):
+            found_files[comp_id] = file_path
+    return found_files
+
+
+def read_outputs_xlsx(path: str) -> List[RunRecord]:
+    wb = load_workbook(path, read_only=True, data_only=True)
+    ws = wb[wb.sheetnames[0]]
     rows = list(ws.iter_rows(min_row=1, values_only=True))
-    if not rows: return []
-    hdr = {h: i for i, h in enumerate([str(c) if c is not None else "" for c in rows[0]])}
-    def get(r, k, d=None): return r[hdr[k]] if k in hdr and hdr[k] < len(r) else d
-    recs = []
-    for r in rows[1:]:
-        if not any(r): continue
+    headers = [str(h) if h is not None else "" for h in rows[0]]
+    idx = {h: i for i, h in enumerate(headers)}
+
+    def get(row, key, default=None):
+        i = idx.get(key)
+        return row[i] if i is not None and i < len(row) else default
+
+    data: List[RunRecord] = []
+    for row in rows[1:]:
+        if not any(x is not None for x in row):
+            continue
         try:
-            recs.append(RunRecord(
-                problem_idx=str(get(r, "problem_idx")),
-                problem_statement=str(get(r, "problem")),
-                model_name=str(get(r, "model_name")),
-                model_config=str(get(r, "model_config")),
-                idx_answer=int(get(r, "idx_answer") or 0),
-                user_message=str(get(r, "user_message")),
-                answer=str(get(r, "answer")),
-                messages=str(get(r, "messages")),
-                input_tokens=float(get(r, "input_tokens") or 0),
-                output_tokens=float(get(r, "output_tokens") or 0),
-                run_cost=float(get(r, "cost") or 0),
-                input_cost_per_tokens=float(get(r, "input_cost_per_tokens") or 0),
-                output_cost_per_tokens=float(get(r, "output_cost_per_tokens") or 0),
-                gold_answer=get(r, "gold_answer"),
-                parsed_answer=get(r, "parsed_answer"),
-                correct=bool(get(r, "correct")) if get(r, "correct") is not None else None,
-            ))
-        except (ValueError, IndexError, KeyError) as e:
-            print(f"Skipping row due to error in file {path.name}: {e}")
+            record = RunRecord(
+                problem_idx=str(get(row, "problem_idx")),
+                problem_statement=str(get(row, "problem")),
+                model_name=str(get(row, "model_name")),
+                model_config=str(get(row, "model_config")),
+                idx_answer=int(get(row, "idx_answer", 0) or 0),
+                user_message=str(get(row, "user_message")),
+                answer=str(get(row, "answer")),
+                messages=str(get(row, "messages")),
+                input_tokens=float(get(row, "input_tokens", 0) or 0),
+                output_tokens=float(get(row, "output_tokens", 0) or 0),
+                run_cost=float(get(row, "cost", 0) or 0),
+                input_cost_per_tokens=float(get(row, "input_cost_per_tokens", 0) or 0),
+                output_cost_per_tokens=float(get(row, "output_cost_per_tokens", 0) or 0),
+                gold_answer=(get(row, "gold_answer") if get(row, "gold_answer") is not None else None),
+                parsed_answer=(get(row, "parsed_answer") if get(row, "parsed_answer") is not None else None),
+                correct=bool(get(row, "correct")) if get(row, "correct") is not None else None,
+            )
+            data.append(record)
+        except Exception as e:
+            print(f"跳过格式错误的行: {e}")
             continue
-    return recs
+    return data
 
-def load_all():
-    """
-    一次性读取所有xlsx文件, 并将数据处理成前端期望的聚合格式。
-    """
-    global ALL_DATA_PAYLOAD, ALL_TRACES
+
+def extract_problem_order_from_runs(runs: List[RunRecord]) -> List[str]:
+    """从运行记录中提取问题ID的顺序"""
+    problem_ids = []
+    seen = set()
+    for r in runs:
+        if r.problem_idx not in seen:
+            problem_ids.append(r.problem_idx)
+            seen.add(r.problem_idx)
+    return problem_ids
+
+
+def build_competition_data(comp_id: str, file_path: str) -> Tuple[Dict[str, Any], List[Dict[str, Any]], Dict[str, bool], Dict[Tuple[str, int], Dict[str, Any]]]:
+    """为单个竞赛构建数据"""
+    config = COMPETITIONS_CONFIG[comp_id]
+    runs = read_outputs_xlsx(file_path)
     
-    # 用于聚合所有比赛数据的临时字典
-    final_results = {}
-    final_competition_info = {}
-    final_secondary = {}
-    final_dates = {}
+    if not runs:
+        return {}, [], {}, {}
+
+    # 从runs中提取问题顺序
+    problem_ids_in_order = extract_problem_order_from_runs(runs)
+
+    # Group runs: per (model_name, problem_id)
+    grouped: Dict[Tuple[str, str], List[RunRecord]] = defaultdict(list)
+    model_set: set[str] = set()
+    for r in runs:
+        model_set.add(r.model_name)
+        grouped[(r.model_name, r.problem_idx)].append(r)
+
+    # Aggregate per model totals for tokens and cost
+    model_totals = {m: {"input_tokens": 0.0, "output_tokens": 0.0, "cost": 0.0} for m in model_set}
+    model_price: Dict[str, Dict[str, float]] = {m: {"input": None, "output": None} for m in model_set}
+
+    for r in runs:
+        mt = model_totals[r.model_name]
+        mt["input_tokens"] += r.input_tokens or 0
+        mt["output_tokens"] += r.output_tokens or 0
+        mt["cost"] += r.run_cost or 0
+        
+        if model_price[r.model_name]["input"] is None and r.input_cost_per_tokens is not None:
+            v = float(r.input_cost_per_tokens or 0)
+            model_price[r.model_name]["input"] = v
+        if model_price[r.model_name]["output"] is None and r.output_cost_per_tokens is not None:
+            v = float(r.output_cost_per_tokens or 0)
+            model_price[r.model_name]["output"] = v
+
+    # Build results rows
+    numeric_to_pid: Dict[int, str] = {}
+    problem_names: List[str] = []
+    for i, pid in enumerate(problem_ids_in_order, start=1):
+        numeric_to_pid[i] = pid
+        problem_names.append(pid)
+
+    results_rows: List[Dict[str, Any]] = []
+    for idx in range(1, len(problem_ids_in_order) + 1):
+        pid = numeric_to_pid[idx]
+        row: Dict[str, Any] = {"question": idx}
+        for m in sorted(model_set):
+            runs_for = grouped.get((m, pid), [])
+            if not runs_for:
+                row[m] = 0
+            else:
+                num = sum(1 for r in runs_for if (r.correct is True))
+                den = len(runs_for)
+                acc = 100.0 * num / den if den > 0 else 0.0
+                row[m] = acc
+        results_rows.append(row)
+
+    # Avg row
+    avg_row: Dict[str, Any] = {"question": "Avg"}
+    for m in sorted(model_set):
+        vals = [r[m] for r in results_rows if isinstance(r[m], (int, float))]
+        avg_row[m] = sum(vals) / len(vals) if vals else 0.0
+    results_rows.append(avg_row)
+
+    # Cost row
+    cost_row: Dict[str, Any] = {"question": "Cost"}
+    for m in sorted(model_set):
+        cost_row[m] = model_totals[m]["cost"]
+    results_rows.append(cost_row)
+
+    # Build secondary data
+    secondary_rows: List[Dict[str, Any]] = []
     
-    ALL_TRACES.clear()
+    # Input Tokens
+    row_it = {"question": "Input Tokens"}
+    for m in sorted(model_set):
+        row_it[m] = model_totals[m]["input_tokens"]
+    secondary_rows.append(row_it)
 
-    # 遍历data文件夹下的所有outputs.xlsx文件
-    for xlsx_file_index, xlsx in enumerate(sorted(DATA_DIR.glob("*_outputs.xlsx"))):
-        comp_key = xlsx.stem.replace("_outputs", "")
-        runs = read_outputs_xlsx(xlsx)
+    # Input Cost
+    row_icpt = {"question": "Input Cost"}
+    for m in sorted(model_set):
+        price_per_mtok = model_price[m]["input"] or 0.0
+        tokens = model_totals[m]["input_tokens"] or 0.0
+        dollars = (tokens * price_per_mtok) / 1_000_000.0
+        row_icpt[m] = round(dollars, 6)
+    secondary_rows.append(row_icpt)
 
-        if not runs:
-            print(f"Warning: No data found in {xlsx.name}, skipping.")
-            continue
+    # Output Tokens
+    row_ot = {"question": "Output Tokens"}
+    for m in sorted(model_set):
+        row_ot[m] = model_totals[m]["output_tokens"]
+    secondary_rows.append(row_ot)
 
-        # 题号顺序与正确答案
-        pid_order: List[str] = []
-        pid_gold: Dict[str, str] = {}
-        seen_pids = set()
-        for r in runs:
-            if r.problem_idx not in seen_pids:
-                seen_pids.add(r.problem_idx)
-                pid_order.append(r.problem_idx)
-                pid_gold[r.problem_idx] = r.gold_answer or ""
+    # Output Cost
+    row_ocpt = {"question": "Output Cost"}
+    for m in sorted(model_set):
+        price_per_mtok = model_price[m]["output"] or 0.0
+        tokens = model_totals[m]["output_tokens"] or 0.0
+        dollars = (tokens * price_per_mtok) / 1_000_000.0
+        row_ocpt[m] = round(dollars, 6)
+    secondary_rows.append(row_ocpt)
 
-        # 按 (模型, 题号) 分组
-        grouped = defaultdict(list)
-        models = sorted(list({r.model_name for r in runs}))
-        for r in runs:
-            grouped[(r.model_name, r.problem_idx)].append(r)
+    # Acc
+    row_acc = {"question": "Acc"}
+    for m in sorted(model_set):
+        row_acc[m] = avg_row[m]
+    secondary_rows.append(row_acc)
 
-        # 统计 token 和 cost
-        totals = {m: {"input": 0.0, "output": 0.0, "cost": 0.0} for m in models}
-        price = {m: {"in": 0.0, "out": 0.0} for m in models}
-        for r in runs:
-            totals[r.model_name]["input"]  += r.input_tokens
-            totals[r.model_name]["output"] += r.output_tokens
-            totals[r.model_name]["cost"]   += r.run_cost
-            if price[r.model_name]["in"] == 0.0: price[r.model_name]["in"] = r.input_cost_per_tokens
-            if price[r.model_name]["out"] == 0.0: price[r.model_name]["out"] = r.output_cost_per_tokens
-
-        # 构建主表格 (results_rows)
-        rows = []
-        for idx, pid in enumerate(pid_order, 1):
-            row = {"question": idx}
-            for m in models:
-                rs = grouped.get((m, pid), [])
-                num = sum(1 for r in rs if r.correct is True)
-                den = len(rs)
-                row[m] = 100.0 * num / den if den else 0.0
-            rows.append(row)
-
-        avg = {"question": "Avg"}
-        for m in models:
-            avg[m] = sum(r[m] for r in rows) / len(rows) if rows else 0.0
-        rows.append(avg)
-
-        cost_row = {"question": "Cost"}
-        for m in models:
-            cost_row[m] = totals[m]["cost"]
-        rows.append(cost_row)
-
-        # --- 数据聚合 ---
-        # 将当前比赛的数据添加到 final 字典中
-        final_results[comp_key] = rows
-        final_competition_info[comp_key] = {
-            "index": xlsx_file_index,  # 使用文件顺序作为索引
-            "nice_name": comp_key.replace("_", " ").title(),
-            "type": "FinalAnswer",
-            "num_problems": len(pid_order),
-            "medal_thresholds": [75, 50, 25],
-            "judge": False,
-            "problem_names": pid_order,
-        }
-        final_secondary[comp_key] = [
-            {"question": "Input Tokens", **{m: totals[m]["input"] for m in models}},
-            {"question": "Input Cost", **{m: round(totals[m]["input"] * price[m]["in"] / 1e6, 6) if price[m]["in"] else 0 for m in models}},
-            {"question": "Output Tokens", **{m: totals[m]["output"] for m in models}},
-            {"question": "Output Cost", **{m: round(totals[m]["output"] * price[m]["out"] / 1e6, 6) if price[m]["out"] else 0 for m in models}},
-            {"question": "Acc", **{m: avg.get(m, 0.0) for m in models}},
-        ]
-        final_dates[comp_key] = {m: False for m in models}
-
-        # 处理 Traces
-        traces_index = {}
-        for idx, pid in enumerate(pid_order, 1):
-            gold = pid_gold[pid]
-            for m in models:
-                rs = sorted(grouped.get((m, pid), []), key=lambda r: r.idx_answer)
-                if not rs: continue
-                traces_index[(m, idx)] = {
-                    "statement": rs[0].problem_statement or "",
-                    "gold_answer": gold,
-                    "model_outputs": [
-                        {"parsed_answer": r.parsed_answer,
-                         "correct": bool(r.correct) if r.correct is not None else False,
-                         "solution": r.answer or ""} for r in rs
-                    ]
-                }
-        ALL_TRACES[comp_key] = traces_index
-
-    # --- 构建最终 Payload ---
-    # 循环结束后，将聚合好的数据组装成一个大的字典
-    ALL_DATA_PAYLOAD = {
-        "results": final_results,
-        "competition_info": final_competition_info,
-        "secondary": final_secondary,
-        "competition_dates": final_dates,
+    # Competition info
+    competition_info = {
+        "index": config["index"],
+        "nice_name": config["nice_name"],
+        "type": "FinalAnswer",
+        "num_problems": len(problem_ids_in_order),
+        "medal_thresholds": [75, 50, 25],
+        "judge": False,
+        "problem_names": problem_names,
     }
 
-# ------------------------------------------------------------------
-# Flask API 路由
-# ------------------------------------------------------------------
+    # Competition dates (no contamination)
+    competition_dates = {}
+    for m in model_set:
+        competition_dates[m] = False
 
-# 修改：创建一个统一的路由返回所有启动所需的数据
-@app.route("/api/all_data")
-def all_data():
-    """返回所有聚合后的数据，供前端一次性加载。"""
-    return jsonify(ALL_DATA_PAYLOAD)
+    # Build traces index
+    traces_index: Dict[Tuple[str, int], Dict[str, Any]] = {}
+    for idx in range(1, len(problem_ids_in_order) + 1):
+        pid = numeric_to_pid[idx]
+        for m in model_set:
+            runs_for = sorted(grouped.get((m, pid), []), key=lambda r: r.idx_answer)
+            if not runs_for:
+                continue
+            statement = runs_for[0].problem_statement or ""
+            gold = runs_for[0].gold_answer or ""
+            outs: List[Dict[str, Any]] = []
+            for rr in runs_for:
+                outs.append({
+                    "parsed_answer": rr.parsed_answer,
+                    "correct": bool(rr.correct) if rr.correct is not None else False,
+                    "solution": rr.answer or "",
+                })
+            traces_index[(m, idx)] = {
+                "statement": statement,
+                "gold_answer": gold,
+                "model_outputs": outs,
+            }
 
-# 保持不变：用于获取单个题目的详细信息
-@app.route("/traces/<competition>/<model>/<int:task>")
-def get_trace(competition: str, model: str, task: int):
-    if competition not in ALL_TRACES:
-        return jsonify({"error": "competition not found"}), 404
+    return competition_info, results_rows, secondary_rows, competition_dates, traces_index
+
+
+def build_backend_payload() -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
+    """构建所有竞赛的后端数据"""
+    found_files = find_competition_files()
     
-    # 在 Python 中，元组 (tuple) 用作字典键是常见的
-    key = (model, task)
-    data = ALL_TRACES[competition].get(key)
-    
+    if not found_files:
+        print("警告: 未找到任何竞赛文件")
+        return {}, {}, {}, {}
+
+    all_competition_info = {}
+    all_results = {}
+    all_secondary = {}
+    all_competition_dates = {}
+    all_traces_index = {}
+
+    for comp_id, file_path in found_files.items():
+        print(f"处理竞赛文件: {comp_id} -> {file_path}")
+        try:
+            config = COMPETITIONS_CONFIG[comp_id]
+            comp_info, results_rows, secondary_rows, comp_dates, traces_idx = build_competition_data(comp_id, file_path)
+            
+            comp_key = config["key"]
+            all_competition_info[comp_key] = comp_info
+            all_results[comp_key] = results_rows
+            all_secondary[comp_key] = secondary_rows
+            all_competition_dates[comp_key] = comp_dates
+            
+            # 转换traces_index的key格式
+            for (model, task_idx), trace_data in traces_idx.items():
+                all_traces_index[(comp_key, model, task_idx)] = trace_data
+                
+        except Exception as e:
+            print(f"处理文件 {file_path} 时出错: {e}")
+            continue
+
+    results_payload = {
+        "competition_info": all_competition_info,
+        "results": all_results
+    }
+
+    return results_payload, all_secondary, all_competition_dates, all_traces_index
+
+
+# -------------------------
+# Flask app
+# -------------------------
+app = Flask(__name__, static_folder=PROJECT_ROOT, static_url_path="")
+CORS(app)
+
+# 在应用启动时构建数据
+print("正在构建后端数据...")
+RESULTS_PAYLOAD, SECONDARY_PAYLOAD, COMP_DATES_PAYLOAD, TRACES_INDEX = build_backend_payload()
+print(f"成功加载 {len(RESULTS_PAYLOAD.get('competition_info', {}))} 个竞赛")
+
+
+@app.route("/")
+def root():
+    return send_from_directory(PROJECT_ROOT, "index.html")
+
+
+@app.get("/results")
+def get_results():
+    return jsonify(RESULTS_PAYLOAD)
+
+
+@app.get("/secondary")
+def get_secondary():
+    return jsonify(SECONDARY_PAYLOAD)
+
+
+@app.get("/competition_dates")
+def get_comp_dates():
+    return jsonify(COMP_DATES_PAYLOAD)
+
+
+@app.get("/traces/<competition>/<model>/<int:task>")
+def get_traces(competition: str, model: str, task: int):
+    key = (competition, model, task)
+    data = TRACES_INDEX.get(key)
     if not data:
         return jsonify({"error": "trace not found"}), 404
     return jsonify(data)
 
-# 保持不变：提供静态首页
-@app.route("/")
-def root():
-    return send_from_directory(Path(__file__).parent, "index.html")
 
-# ------------------------------------------------------------------
-# 程序入口
-# ------------------------------------------------------------------
-if __name__ == "__main__":
-    # 在启动服务器前先加载所有数据
-    print("Loading all data from xlsx files...")
-    load_all()
-    print("Data loaded successfully.")
-    
+def main():
     port = int(os.environ.get("PORT", 8000))
-    app.run(host="0.0.0.0", port=port, debug=False) # 在生产环境中建议关闭 debug
+    app.run(host="0.0.0.0", port=port, debug=True)
+
+
+if __name__ == "__main__":
+    main()
