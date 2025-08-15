@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import json
-import math
 import os
-from collections import defaultdict, OrderedDict
+from pathlib import Path
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, List, Any, Tuple
 
@@ -11,18 +10,13 @@ from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 from openpyxl import load_workbook
 
+# -------------------------
+DATA_DIR = Path(__file__).with_name("data")
+
+app = Flask(__name__, static_url_path="", static_folder=str(Path(__file__).parent))
+CORS(app)
 
 # -------------------------
-# Configuration
-# -------------------------
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
-INPUTS_CSV = os.path.join(PROJECT_ROOT, "ipho2025_answers.csv")
-OUTPUTS_XLSX = os.path.join(PROJECT_ROOT, "ipho2025_outputs.xlsx")
-
-COMPETITION_KEY = "ipho--ipho_2025"
-COMPETITION_NICE_NAME = "IPhO 2025"
-
-
 @dataclass
 class RunRecord:
     problem_idx: str
@@ -42,270 +36,180 @@ class RunRecord:
     parsed_answer: str | None
     correct: bool | None
 
-
-def read_inputs_csv(path: str) -> OrderedDict[str, str]:
-    """Read mapping from sub-problem id -> gold answer in the provided order.
-    Returns an OrderedDict preserving file order.
-    """
-    import csv
-    ordered = OrderedDict()
-    with open(path, newline='', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            pid = row.get("id")
-            ans = row.get("answer")
-            if pid:
-                ordered[pid] = ans or ""
-    return ordered
-
-
-def read_outputs_xlsx(path: str) -> List[RunRecord]:
-    wb = load_workbook(path, read_only=True, data_only=True)
-    ws = wb[wb.sheetnames[0]]
+def read_outputs_xlsx(path: Path) -> List[RunRecord]:
+    ws = load_workbook(path, read_only=True, data_only=True).worksheets[0]
     rows = list(ws.iter_rows(min_row=1, values_only=True))
-    headers = [str(h) if h is not None else "" for h in rows[0]]
-    idx = {h: i for i, h in enumerate(headers)}
-
-    def get(row, key, default=None):
-        i = idx.get(key)
-        return row[i] if i is not None and i < len(row) else default
-
-    data: List[RunRecord] = []
-    for row in rows[1:]:
-        if not any(x is not None for x in row):
-            continue
+    hdr = {h: i for i, h in enumerate([str(c) if c is not None else "" for c in rows[0]])}
+    def get(r, k, d=None): return r[hdr[k]] if k in hdr and hdr[k] < len(r) else d
+    recs = []
+    for r in rows[1:]:
+        if not any(r): continue
         try:
-            record = RunRecord(
-                problem_idx=str(get(row, "problem_idx")),
-                problem_statement=str(get(row, "problem")),
-                model_name=str(get(row, "model_name")),
-                model_config=str(get(row, "model_config")),
-                idx_answer=int(get(row, "idx_answer", 0) or 0),
-                user_message=str(get(row, "user_message")),
-                answer=str(get(row, "answer")),
-                messages=str(get(row, "messages")),
-                input_tokens=float(get(row, "input_tokens", 0) or 0),
-                output_tokens=float(get(row, "output_tokens", 0) or 0),
-                run_cost=float(get(row, "cost", 0) or 0),
-                input_cost_per_tokens=float(get(row, "input_cost_per_tokens", 0) or 0),
-                output_cost_per_tokens=float(get(row, "output_cost_per_tokens", 0) or 0),
-                gold_answer=(get(row, "gold_answer") if get(row, "gold_answer") is not None else None),
-                parsed_answer=(get(row, "parsed_answer") if get(row, "parsed_answer") is not None else None),
-                correct=bool(get(row, "correct")) if get(row, "correct") is not None else None,
-            )
-            data.append(record)
+            recs.append(RunRecord(
+                problem_idx=str(get(r, "problem_idx")),
+                problem_statement=str(get(r, "problem")),
+                model_name=str(get(r, "model_name")),
+                model_config=str(get(r, "model_config")),
+                idx_answer=int(get(r, "idx_answer") or 0),
+                user_message=str(get(r, "user_message")),
+                answer=str(get(r, "answer")),
+                messages=str(get(r, "messages")),
+                input_tokens=float(get(r, "input_tokens") or 0),
+                output_tokens=float(get(r, "output_tokens") or 0),
+                run_cost=float(get(r, "cost") or 0),
+                input_cost_per_tokens=float(get(r, "input_cost_per_tokens") or 0),
+                output_cost_per_tokens=float(get(r, "output_cost_per_tokens") or 0),
+                gold_answer=get(r, "gold_answer"),
+                parsed_answer=get(r, "parsed_answer"),
+                correct=bool(get(r, "correct")) if get(r, "correct") is not None else None,
+            ))
         except Exception:
-            # Skip malformed row but continue
             continue
-    return data
+    return recs
 
+# ------------------------------------------------------------------
+# 一次性读取所有 xlsx
+# ------------------------------------------------------------------
+ALL_RESULTS: Dict[str, Any] = {}          # competition_key -> 原 results payload
+ALL_SECONDARY: Dict[str, Any] = {}        # competition_key -> 原 secondary payload
+ALL_DATES: Dict[str, Any] = {}            # competition_key -> 原 dates payload
+ALL_TRACES: Dict[str, Dict[str, Any]] = {}  # competition_key -> traces_index
 
-def build_backend_payload() -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
-    # Inputs (gold answers) and ordering for problem names
-    problem_id_to_gold = read_inputs_csv(INPUTS_CSV)
-    problem_ids_in_order: List[str] = list(problem_id_to_gold.keys())
+def load_all():
+    ALL_RESULTS.clear(); ALL_SECONDARY.clear(); ALL_DATES.clear(); ALL_TRACES.clear()
+    for xlsx in DATA_DIR.glob("*_outputs.xlsx"):
+        comp_key = xlsx.stem.replace("_outputs", "")
+        runs = read_outputs_xlsx(xlsx)
 
-    runs = read_outputs_xlsx(OUTPUTS_XLSX)
+        # 题号顺序
+        pid_order: List[str] = []
+        pid_gold: Dict[str, str] = {}
+        seen = set()
+        for r in runs:
+            if r.problem_idx not in seen:
+                seen.add(r.problem_idx)
+                pid_order.append(r.problem_idx)
+                pid_gold[r.problem_idx] = r.gold_answer or ""
 
-    # Group runs: per (model_name, problem_id)
-    grouped: Dict[Tuple[str, str], List[RunRecord]] = defaultdict(list)
-    model_set: set[str] = set()
-    for r in runs:
-        model_set.add(r.model_name)
-        grouped[(r.model_name, r.problem_idx)].append(r)
+        grouped = defaultdict(list)
+        models = set()
+        for r in runs:
+            grouped[(r.model_name, r.problem_idx)].append(r)
+            models.add(r.model_name)
 
-    # Aggregate per model totals for tokens and cost
-    model_totals = {m: {"input_tokens": 0.0, "output_tokens": 0.0, "cost": 0.0} for m in model_set}
-    # Capture per-token prices (divide by 1e6 if given in $/MTok)
-    model_price: Dict[str, Dict[str, float]] = {m: {"input": None, "output": None} for m in model_set}
+        # 统计
+        totals = {m: {"input": 0.0, "output": 0.0, "cost": 0.0} for m in models}
+        price  = {m: {"in": None, "out": None} for m in models}
+        for r in runs:
+            totals[r.model_name]["input"]  += r.input_tokens or 0
+            totals[r.model_name]["output"] += r.output_tokens or 0
+            totals[r.model_name]["cost"]   += r.run_cost or 0
+            if price[r.model_name]["in"]  is None: price[r.model_name]["in"]  = float(r.input_cost_per_tokens  or 0)
+            if price[r.model_name]["out"] is None: price[r.model_name]["out"] = float(r.output_cost_per_tokens or 0)
 
-    for r in runs:
-        mt = model_totals[r.model_name]
-        mt["input_tokens"] += r.input_tokens or 0
-        mt["output_tokens"] += r.output_tokens or 0
-        mt["cost"] += r.run_cost or 0
-        # Save first seen price. We display price per million tokens as-is from the spreadsheet.
-        if model_price[r.model_name]["input"] is None and r.input_cost_per_tokens is not None:
-            v = float(r.input_cost_per_tokens or 0)
-            model_price[r.model_name]["input"] = v
-        if model_price[r.model_name]["output"] is None and r.output_cost_per_tokens is not None:
-            v = float(r.output_cost_per_tokens or 0)
-            model_price[r.model_name]["output"] = v
+        # results_rows
+        rows = []
+        for idx, pid in enumerate(pid_order, 1):
+            row = {"question": idx}
+            for m in sorted(models):
+                rs = grouped.get((m, pid), [])
+                num = sum(1 for r in rs if r.correct is True)
+                den = len(rs)
+                row[m] = 100.0 * num / den if den else 0.0
+            rows.append(row)
 
-    # Build results rows: one row per numeric task index, plus Avg and Cost rows
-    # Map numeric column index -> problem id
-    numeric_to_pid: Dict[int, str] = {}
-    problem_names: List[str] = []
-    for i, pid in enumerate(problem_ids_in_order, start=1):
-        numeric_to_pid[i] = pid
-        problem_names.append(pid)
+        avg = {"question": "Avg"}
+        for m in sorted(models):
+            avg[m] = sum(r[m] for r in rows) / len(rows)
+        rows.append(avg)
 
-    # For each numeric task, compute per-model accuracy %
-    results_rows: List[Dict[str, Any]] = []
-    for idx in range(1, len(problem_ids_in_order) + 1):
-        pid = numeric_to_pid[idx]
-        row: Dict[str, Any] = {"question": idx}
-        for m in sorted(model_set):
-            runs_for = grouped.get((m, pid), [])
-            if not runs_for:
-                row[m] = 0
-            else:
-                num = sum(1 for r in runs_for if (r.correct is True))
-                den = len(runs_for)
-                acc = 100.0 * num / den if den > 0 else 0.0
-                row[m] = acc
-        results_rows.append(row)
+        cost_row = {"question": "Cost"}
+        for m in sorted(models):
+            cost_row[m] = totals[m]["cost"]
+        rows.append(cost_row)
 
-    # Avg row
-    avg_row: Dict[str, Any] = {"question": "Avg"}
-    for m in sorted(model_set):
-        vals = [r[m] for r in results_rows if isinstance(r[m], (int, float))]
-        avg_row[m] = sum(vals) / len(vals) if vals else 0.0
-    results_rows.append(avg_row)
-
-    # Cost row
-    cost_row: Dict[str, Any] = {"question": "Cost"}
-    for m in sorted(model_set):
-        cost_row[m] = model_totals[m]["cost"]
-    results_rows.append(cost_row)
-
-    # Build top-level /results payload
-    competition_info = {
-        COMPETITION_KEY: {
-            "index": 1,
-            "nice_name": COMPETITION_NICE_NAME,
-            "type": "FinalAnswer",
-            "num_problems": len(problem_ids_in_order),
-            "medal_thresholds": [75, 50, 25],
-            "judge": False,
-            "problem_names": problem_names,
+        ALL_RESULTS[comp_key] = {
+            "competition_info": {
+                comp_key: {
+                    "index": 1,
+                    "nice_name": comp_key.replace("_", " ").upper(),
+                    "type": "FinalAnswer",
+                    "num_problems": len(pid_order),
+                    "medal_thresholds": [75, 50, 25],
+                    "judge": False,
+                    "problem_names": pid_order,
+                }
+            },
+            "results": {comp_key: rows}
         }
-    }
 
-    results_payload = {
-        "competition_info": competition_info,
-        "results": {
-            COMPETITION_KEY: results_rows
+        ALL_SECONDARY[comp_key] = {
+            comp_key: [
+                {"question": "Input Tokens",
+                 **{m: totals[m]["input"] for m in sorted(models)}},
+                {"question": "Input Cost",
+                 **{m: round(totals[m]["input"] * price[m]["in"] / 1e6, 6) for m in sorted(models)}},
+                {"question": "Output Tokens",
+                 **{m: totals[m]["output"] for m in sorted(models)}},
+                {"question": "Output Cost",
+                 **{m: round(totals[m]["output"] * price[m]["out"] / 1e6, 6) for m in sorted(models)}},
+                {"question": "Acc", **{m: avg[m] for m in sorted(models)}},
+            ]
         }
-    }
 
-    # Build /secondary payload rows
-    secondary_rows: List[Dict[str, Any]] = []
-    # Input Tokens
-    row_it = {"question": "Input Tokens"}
-    for m in sorted(model_set):
-        row_it[m] = model_totals[m]["input_tokens"]
-    secondary_rows.append(row_it)
+        ALL_DATES[comp_key] = {comp_key: {m: False for m in models}}
 
-    # Input Cost (total $): tokens * ($/Mtok) / 1e6
-    row_icpt = {"question": "Input Cost"}
-    for m in sorted(model_set):
-        price_per_mtok = model_price[m]["input"] or 0.0
-        tokens = model_totals[m]["input_tokens"] or 0.0
-        dollars = (tokens * price_per_mtok) / 1_000_000.0
-        row_icpt[m] = round(dollars, 6)
-    secondary_rows.append(row_icpt)
+        # traces
+        traces_index = {}
+        for idx, pid in enumerate(pid_order, 1):
+            gold = pid_gold[pid]
+            for m in sorted(models):
+                rs = sorted(grouped.get((m, pid), []), key=lambda r: r.idx_answer)
+                if not rs: continue
+                traces_index[(m, idx)] = {
+                    "statement": rs[0].problem_statement or "",
+                    "gold_answer": gold,
+                    "model_outputs": [
+                        {"parsed_answer": r.parsed_answer,
+                         "correct": bool(r.correct) if r.correct is not None else False,
+                         "solution": r.answer or ""} for r in rs
+                    ]
+                }
+        ALL_TRACES[comp_key] = traces_index
 
-    # Output Tokens
-    row_ot = {"question": "Output Tokens"}
-    for m in sorted(model_set):
-        row_ot[m] = model_totals[m]["output_tokens"]
-    secondary_rows.append(row_ot)
+load_all()
 
-    # Output Cost (total $): tokens * ($/Mtok) / 1e6
-    row_ocpt = {"question": "Output Cost"}
-    for m in sorted(model_set):
-        price_per_mtok = model_price[m]["output"] or 0.0
-        tokens = model_totals[m]["output_tokens"] or 0.0
-        dollars = (tokens * price_per_mtok) / 1_000_000.0
-        row_ocpt[m] = round(dollars, 6)
-    secondary_rows.append(row_ocpt)
+# ------------------------------------------------------------------
+# 统一路由：一次性返回所有竞赛
+# ------------------------------------------------------------------
+@app.route("/results")
+def all_results():
+    return jsonify(ALL_RESULTS)
 
-    # Acc (overall average %)
-    row_acc = {"question": "Acc"}
-    for m in sorted(model_set):
-        row_acc[m] = avg_row[m]
-    secondary_rows.append(row_acc)
+@app.route("/secondary")
+def all_secondary():
+    return jsonify(ALL_SECONDARY)
 
-    secondary_payload = {COMPETITION_KEY: secondary_rows}
+@app.route("/competition_dates")
+def all_dates():
+    return jsonify(ALL_DATES)
 
-    # Build competition_dates: set all False (no contamination warning)
-    competition_dates: Dict[str, Dict[str, bool]] = {COMPETITION_KEY: {}}
-    for m in model_set:
-        competition_dates[COMPETITION_KEY][m] = False
-
-    # Build traces index: per (model, numeric_idx) produce trace structure
-    traces_index: Dict[Tuple[str, int], Dict[str, Any]] = {}
-    # For statement, take the first run's problem_statement per (model, pid)
-    for idx in range(1, len(problem_ids_in_order) + 1):
-        pid = numeric_to_pid[idx]
-        gold = problem_id_to_gold.get(pid, "")
-        for m in model_set:
-            runs_for = sorted(grouped.get((m, pid), []), key=lambda r: r.idx_answer)
-            if not runs_for:
-                continue
-            statement = runs_for[0].problem_statement or ""
-            outs: List[Dict[str, Any]] = []
-            for rr in runs_for:
-                outs.append({
-                    "parsed_answer": rr.parsed_answer,
-                    "correct": bool(rr.correct) if rr.correct is not None else False,
-                    "solution": rr.answer or "",
-                })
-            traces_index[(m, idx)] = {
-                "statement": statement,
-                "gold_answer": gold,
-                "model_outputs": outs,
-            }
-
-    return results_payload, secondary_payload, competition_dates, traces_index
-
-
-# -------------------------
-# Flask app
-# -------------------------
-app = Flask(__name__, static_folder=PROJECT_ROOT, static_url_path="")
-CORS(app)
-RESULTS_PAYLOAD, SECONDARY_PAYLOAD, COMP_DATES_PAYLOAD, TRACES_INDEX = build_backend_payload()
-
-
-@app.route("/")
-def root():
-    return send_from_directory(PROJECT_ROOT, "index.html")
-
-
-@app.get("/results")
-def get_results():
-    return jsonify(RESULTS_PAYLOAD)
-
-
-@app.get("/secondary")
-def get_secondary():
-    return jsonify(SECONDARY_PAYLOAD)
-
-
-@app.get("/competition_dates")
-def get_comp_dates():
-    return jsonify(COMP_DATES_PAYLOAD)
-
-
-@app.get("/traces/<competition>/<model>/<int:task>")
-def get_traces(competition: str, model: str, task: int):
-    if competition != COMPETITION_KEY:
+@app.route("/traces/<competition>/<model>/<int:task>")
+def get_trace(competition: str, model: str, task: int):
+    if competition not in ALL_TRACES:
         return jsonify({"error": "competition not found"}), 404
     key = (model, task)
-    data = TRACES_INDEX.get(key)
+    data = ALL_TRACES[competition].get(key)
     if not data:
         return jsonify({"error": "trace not found"}), 404
     return jsonify(data)
 
+# 静态首页
+@app.route("/")
+def root():
+    return send_from_directory(Path(__file__).parent, "index.html")
 
-def main():
+# 入口
+if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     app.run(host="0.0.0.0", port=port, debug=True)
-
-
-if __name__ == "__main__":
-    main()
-
-
