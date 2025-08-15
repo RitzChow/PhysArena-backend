@@ -7,7 +7,7 @@ import glob
 from collections import defaultdict, OrderedDict
 from dataclasses import dataclass
 from typing import Dict, List, Any, Tuple
-
+from flask_cors import CORS
 from flask import Flask, jsonify, send_from_directory
 from openpyxl import load_workbook
 
@@ -329,7 +329,7 @@ def build_backend_payload() -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, A
 # Flask app
 # -------------------------
 app = Flask(__name__, static_folder=PROJECT_ROOT, static_url_path="")
-
+CORS(app)
 RESULTS_PAYLOAD, SECONDARY_PAYLOAD, COMP_DATES_PAYLOAD, TRACES_INDEX = build_backend_payload()
 
 
