@@ -130,7 +130,7 @@ def load_all():
 
         ALL_RESULTS[comp_key] = {
             "competition_info": {
-                comp_key: {
+                **comp_key: {
                     "index": 1,
                     "nice_name": comp_key.replace("_", " ").upper(),
                     "type": "FinalAnswer",
@@ -140,11 +140,11 @@ def load_all():
                     "problem_names": pid_order,
                 }
             },
-            "results": {comp_key: rows}
+            "results": {**comp_key: rows}
         }
 
         ALL_SECONDARY[comp_key] = {
-            comp_key: [
+            **comp_key: [
                 {"question": "Input Tokens",
                  **{m: totals[m]["input"] for m in sorted(models)}},
                 {"question": "Input Cost",
@@ -157,7 +157,7 @@ def load_all():
             ]
         }
 
-        ALL_DATES[comp_key] = {comp_key: {m: False for m in models}}
+        ALL_DATES[comp_key] = {**comp_key: {m: False for m in models}}
 
         # traces
         traces_index = {}
